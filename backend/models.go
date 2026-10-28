@@ -11,6 +11,7 @@ import (
 type FixedCost = domain.FixedCost
 type Expense = domain.Expense
 type Budget = domain.Budget
+type APIMapping = domain.APIMapping
 type MonthData = domain.MonthData
 type Store = domain.Store
 type AuthConfig = domain.AuthConfig
@@ -25,6 +26,7 @@ type Page struct {
 	FixedCosts                                              []FixedCost
 	Budgets                                                 []Budget
 	StandardExpenses                                        []Expense
+	APIMappings                                             []APIMapping
 	Analytics                                               []CategoryMetric
 	Flash                                                   string
 	APIKeyConfigured                                        bool

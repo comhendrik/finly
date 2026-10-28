@@ -14,6 +14,7 @@ var ErrInvalidExpense = errors.New("invalid expense")
 type CreateExpenseInput struct {
 	Month    string
 	BudgetID string
+	ApplyAPIMapping bool
 	Name     string
 	Amount   float64
 	Date     string
@@ -39,7 +40,7 @@ func CreateExpense(state *domain.Store, input CreateExpenseInput, monthData func
 		found := false
 		for i := range data.Budgets {
 			if data.Budgets[i].ID != input.BudgetID { continue }
-			if expense.Category == "" { expense.Category = categoryOr(data.Budgets[i].Category, data.Budgets[i].Name) }
+			expense.Category = categoryOr(data.Budgets[i].Category, data.Budgets[i].Name)
 			data.Budgets[i].Expenses = append(data.Budgets[i].Expenses, expense)
 			found = true
 			break

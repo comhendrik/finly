@@ -1,10 +1,9 @@
 package domain
 
 type FixedCost struct {
-	ID       string  `json:"id"`
-	Name     string  `json:"name"`
-	Amount   float64 `json:"amount"`
-	Category string  `json:"category,omitempty"`
+	ID     string  `json:"id"`
+	Name   string  `json:"name"`
+	Amount float64 `json:"amount"`
 }
 
 type Expense struct {
@@ -23,6 +22,13 @@ type Budget struct {
 	Expenses []Expense `json:"expenses"`
 }
 
+type APIMapping struct {
+	ID         string   `json:"id"`
+	Category   string   `json:"category"`
+	Names      []string `json:"names"`
+	LegacyName string   `json:"name,omitempty"`
+}
+
 type MonthData struct {
 	Budgets          []Budget    `json:"budgets"`
 	StandardExpenses []Expense   `json:"standard_expenses"`
@@ -32,6 +38,8 @@ type MonthData struct {
 }
 
 type Store struct {
+	ActiveMonth string               `json:"active_month,omitempty"`
+	APIMappings []APIMapping         `json:"api_mappings,omitempty"`
 	// Income and FixedCosts remain to support imports from older JSON files.
 	Income     float64              `json:"income"`
 	FixedCosts []FixedCost          `json:"fixed_costs"`

@@ -3,6 +3,7 @@ package backend
 import (
 	"fmt"
 	"html/template"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -27,6 +28,7 @@ func (a *App) router() *gin.Engine {
 		"add": func(left, right float64) float64 {
 			return left + right
 		},
+		"join": strings.Join,
 	})
 
 	router.LoadHTMLGlob("frontend/templates/*")
@@ -50,11 +52,14 @@ func (a *App) router() *gin.Engine {
 	router.GET("/", a.home)
 	router.POST("/month", a.changeMonth)
 	router.POST("/settings", a.saveSettings)
+	router.POST("/settings/active-month", a.setActiveMonth)
+	router.POST("/settings/month/delete", a.deleteMonthData)
 
 	router.POST("/budget/:id/expense", a.addBudgetExpense)
 	router.POST("/budget/:id/expense/:expenseID/delete", a.deleteBudgetExpense)
 	router.POST("/standard-expenses", a.addStandardExpense)
 	router.POST("/standard-expenses/:id/delete", a.deleteStandardExpense)
+	router.POST("/standard-expenses/:id/category", a.updateExpenseCategory)
 
 	return router
 }

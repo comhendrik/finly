@@ -59,6 +59,10 @@ func (a *App) loadTenant(username string) error {
 	if err := json.Unmarshal(contents, &state); err != nil { return fmt.Errorf("decode tenant state: %w", err) }
 	if state.Auth == nil || !validPasswordHash(state.Auth.PasswordHash) { return errors.New("invalid tenant authentication data") }
 	if state.Months == nil { state.Months = make(map[string]MonthData) }
+	activeMonth := normalizeActiveMonth(state.ActiveMonth)
+	needsMigration := state.ActiveMonth != activeMonth
+	state.ActiveMonth = activeMonth
+	state.APIMappings, needsMigration = normalizeAPIMappings(state.APIMappings, needsMigration)
 	if state.FixedCosts == nil { state.FixedCosts = []FixedCost{} }
 	key, err := base64.RawStdEncoding.DecodeString(state.Auth.SessionKey)
 	if err != nil || len(key) != 32 { return errors.New("invalid session key") }
@@ -74,8 +78,66 @@ func (a *App) loadTenant(username string) error {
 	a.sessionSecret, a.jwtSecret = key, jwtSecret
 	a.apiKeyHash, a.apiKeyCreatedAt = state.Auth.APIKeyHash, state.Auth.APIKeyCreatedAt
 	a.authMu.Unlock()
-	if state.Auth.JWTSecret != "" && jwtErr == nil { return nil }
+	if state.Auth.JWTSecret != "" && jwtErr == nil && !needsMigration { return nil }
 	return a.saveLocked()
+}
+
+func normalizeActiveMonth(raw string) string {
+	if month, err := time.Parse("2006-01", raw); err == nil && month.Format("2006-01") == raw {
+		return raw
+	}
+	return time.Now().Format("2006-01")
+}
+
+func normalizeAPIMappings(raw []APIMapping, changed bool) ([]APIMapping, bool) {
+	if raw == nil {
+		return raw, changed
+	}
+	mappings := make([]APIMapping, 0, len(raw))
+	categoryIndexes := make(map[string]int)
+	seenNames := make(map[string]bool)
+	for _, mapping := range raw {
+		names := append([]string{}, mapping.Names...)
+		if mapping.LegacyName != "" {
+			names = append(names, mapping.LegacyName)
+			changed = true
+		}
+		category := strings.TrimSpace(mapping.Category)
+		if category != mapping.Category {
+			changed = true
+		}
+		if category == "" {
+			changed = true
+			continue
+		}
+		key := strings.ToLower(category)
+		index, exists := categoryIndexes[key]
+		if exists {
+			changed = true
+		} else {
+			mapping.Category = category
+			mapping.Names = []string{}
+			mapping.LegacyName = ""
+			index = len(mappings)
+			categoryIndexes[key] = index
+			mappings = append(mappings, mapping)
+		}
+		for _, name := range names {
+		trimmedName := strings.TrimSpace(name)
+		if trimmedName != name {
+			changed = true
+		}
+		name = trimmedName
+			nameKey := strings.ToLower(name)
+			if name == "" || seenNames[nameKey] {
+				changed = true
+				continue
+			}
+			seenNames[nameKey] = true
+			mappings[index].Names = append(mappings[index].Names, name)
+		}
+	}
+	return mappings, changed
 }
 
 // saveLocked persists the application state as a single JSONB row. Callers
@@ -110,6 +172,7 @@ func (a *App) defaultsForMonthLocked(monthKey string) (float64, []FixedCost) {
 
 // monthDataLocked returns a writable month snapshot. The caller must hold a.mu.
 func (a *App) monthDataLocked(rawMonth string) (string, MonthData) {
+	if strings.TrimSpace(rawMonth) == "" { rawMonth = a.data.ActiveMonth }
 	key := parseMonth(rawMonth).Format("2006-01")
 	month := a.data.Months[key]
 	if !month.Initialized { month.Income, month.FixedCosts = a.defaultsForMonthLocked(key); month.Initialized = true }
