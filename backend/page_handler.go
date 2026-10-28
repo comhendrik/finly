@@ -11,10 +11,10 @@ import (
 )
 
 func (a *App) home(c *gin.Context) {
-	month := parseMonth(c.Query("month"))
-	monthKey := month.Format("2006-01")
-
 	a.mu.Lock()
+	monthKey := normalizeActiveMonth(a.data.ActiveMonth)
+	a.data.ActiveMonth = monthKey
+	month := parseMonth(monthKey)
 	monthData, exists := a.data.Months[monthKey]
 	if !exists {
 		monthData = MonthData{Budgets: []Budget{}, StandardExpenses: []Expense{}}
@@ -31,9 +31,11 @@ func (a *App) home(c *gin.Context) {
 
 	monthData.Budgets = cloneBudgets(monthData.Budgets)
 	monthData.StandardExpenses = append([]Expense{}, monthData.StandardExpenses...)
+	apiMappings := append([]APIMapping{}, a.data.APIMappings...)
 	a.mu.Unlock()
 
 	page := buildPage(month, monthKey, monthData, income, fixedCosts, c.Query("tab"), c.Query("saved"))
+	page.APIMappings = apiMappings
 	a.authMu.RLock()
 	page.APIKeyConfigured = a.apiKeyHash != ""
 	page.APIKeyCreatedAt = a.apiKeyCreatedAt
@@ -117,16 +119,14 @@ func normalizeTab(tab string) string {
 }
 
 func (a *App) changeMonth(c *gin.Context) {
-	month := parseMonth(c.PostForm("month"))
-	offset, _ := strconv.Atoi(c.PostForm("offset"))
-	month = month.AddDate(0, offset, 0)
 	tab := normalizeTab(c.PostForm("tab"))
-
-	c.Redirect(http.StatusSeeOther, "/?month="+month.Format("2006-01")+"&tab="+tab)
+	c.Redirect(http.StatusSeeOther, "/?tab="+tab)
 }
 
 func (a *App) redirectAfterSave(c *gin.Context) {
-	month := parseMonth(c.PostForm("month"))
+	a.mu.Lock()
+	month := parseMonth(normalizeActiveMonth(a.data.ActiveMonth))
+	a.mu.Unlock()
 	tab := normalizeTab(c.PostForm("tab"))
 	url := "/?month=" + month.Format("2006-01") + "&tab=" + tab + "&saved=Änderungen+gespeichert"
 	c.Redirect(http.StatusSeeOther, url)
@@ -191,7 +191,7 @@ func (a *App) categoryMetrics(period string, selectedMonth time.Time, year int) 
 			_, fixedCosts = a.defaultsForMonthLocked(key)
 		}
 		for _, fixed := range fixedCosts {
-			addAmount(fixed.Category, fixed.Amount, "Allgemein")
+			addAmount("Fixkosten", fixed.Amount, "Fixkosten")
 		}
 
 		for _, budget := range month.Budgets {
@@ -211,7 +211,7 @@ func (a *App) categoryMetrics(period string, selectedMonth time.Time, year int) 
 		if _, exists := a.data.Months[key]; !exists {
 			_, fixedCosts := a.defaultsForMonthLocked(key)
 			for _, fixed := range fixedCosts {
-				addAmount(fixed.Category, fixed.Amount, "Allgemein")
+				addAmount("Fixkosten", fixed.Amount, "Fixkosten")
 			}
 		}
 	}

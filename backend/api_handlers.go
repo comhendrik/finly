@@ -46,8 +46,8 @@ func (a *App) apiCreateExpense(c *gin.Context) {
 	}
 	request.Amount = filterAmountText(request.Amount)
 	amount := parseAmount(request.Amount)
-	if strings.TrimSpace(request.Month) == "" || strings.TrimSpace(request.Name) == "" || amount <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "month, name and a positive amount are required"})
+	if strings.TrimSpace(request.Name) == "" || amount <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name and a positive amount are required"})
 		return
 	}
 	budgetID := strings.TrimSpace(request.BudgetID)
@@ -60,7 +60,7 @@ func (a *App) apiCreateExpense(c *gin.Context) {
 	}
 	expense, month, err := a.CreateExpense(CreateExpenseInput{
 		Month: request.Month, BudgetID: budgetID, Name: request.Name,
-		Amount: amount, Date: request.Date, Category: request.Category,
+		Amount: amount, Date: request.Date, Category: request.Category, ApplyAPIMapping: true,
 	})
 	if err != nil {
 		if errors.Is(err, errBudgetNotFound) { c.JSON(http.StatusNotFound, gin.H{"error": "budget not found for this month"}); return }

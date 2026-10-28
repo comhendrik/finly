@@ -22,7 +22,7 @@ func (a *App) addBudgetExpense(c *gin.Context) {
 
 func (a *App) deleteBudgetExpense(c *gin.Context) {
 	a.mu.Lock()
-	monthKey, month := a.monthDataLocked(c.PostForm("month"))
+	monthKey, month := a.monthDataLocked(a.data.ActiveMonth)
 
 	for i := range month.Budgets {
 		budget := &month.Budgets[i]
@@ -55,9 +55,29 @@ func (a *App) addStandardExpense(c *gin.Context) {
 
 func (a *App) deleteStandardExpense(c *gin.Context) {
 	a.mu.Lock()
-	monthKey, month := a.monthDataLocked(c.PostForm("month"))
+	monthKey, month := a.monthDataLocked(a.data.ActiveMonth)
 	month.StandardExpenses = withoutExpense(month.StandardExpenses, c.Param("id"))
 
+	a.saveMonthAndRedirect(c, monthKey, month)
+}
+
+func (a *App) updateExpenseCategory(c *gin.Context) {
+	category := strings.TrimSpace(c.PostForm("category"))
+	a.mu.Lock()
+	monthKey, month := a.monthDataLocked(a.data.ActiveMonth)
+	found := false
+	for i := range month.StandardExpenses {
+		if month.StandardExpenses[i].ID == c.Param("id") {
+			month.StandardExpenses[i].Category = category
+			found = true
+			break
+		}
+	}
+	if !found {
+		a.mu.Unlock()
+		c.String(404, "expense not found")
+		return
+	}
 	a.saveMonthAndRedirect(c, monthKey, month)
 }
 

@@ -43,10 +43,10 @@ Fügt eine Ausgabe hinzu. Der Aufruf muss JSON mit `Content-Type: application/js
 
 | Feld | Typ | Pflicht | Beschreibung |
 | --- | --- | --- | --- |
-| `month` | String | Ja | Zielmonat im Format `YYYY-MM`, zum Beispiel `2026-10`. |
+| `month` | String | Nein | Wird ignoriert. Finly ordnet die Ausgabe immer dem in den Einstellungen gewählten aktiven Monat zu. |
 | `name` | String | Ja | Bezeichnung der Ausgabe; darf nicht leer sein. |
 | `amount` | String | Ja | Betrag als Text. Der Server entfernt alle Zeichen außer Ziffern und Kommas und verarbeitet das Komma als Dezimaltrennzeichen. |
-| `budget_id` | String | Nein | ID eines bestehenden Budgets im Zielmonat. Wenn ausgelassen oder leer, wird eine Standardausgabe erstellt. |
+| `budget_id` | String | Nein | ID eines bestehenden Budgets im aktiven Monat. Wenn ausgelassen oder leer, wird eine Standardausgabe erstellt. |
 | `date` | String | Nein | Ausgabedatum im Format `YYYY-MM-DD`. Ohne Angabe verwendet Finly das aktuelle Serverdatum. |
 | `category` | String | Nein | Kategorie. Standardausgaben erhalten ohne Angabe `Allgemein`; bei Budgetausgaben übernimmt Finly die Budgetkategorie oder den Budgetnamen. |
 
@@ -56,12 +56,14 @@ Beispiel für eine Standardausgabe:
 curl -X POST http://localhost:8080/api/v1/expenses \
   -H "Authorization: Bearer $FINLY_API_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"month":"2026-10","name":"Mittagessen","amount":"12,50","category":"Essen"}'
+  -d '{"name":"Mittagessen","amount":"12,50","category":"Essen"}'
 ```
 
 Zusätzliche Zeichen im Betragstext werden serverseitig ignoriert. So wird zum Beispiel `"amount":"2,49B B-y"` als `2,49` verarbeitet.
 
-Für eine Budgetausgabe ergänze `"budget_id":"BUDGET_ID"` im JSON. Die Budget-ID muss zu einem Budget im angegebenen Monat gehören.
+Für eine Budgetausgabe ergänze `"budget_id":"BUDGET_ID"` im JSON. Die Budget-ID muss zu einem Budget im aktiven Monat gehören. Der aktive Monat wird unter **Einstellungen → Aktiver Monat** festgelegt.
+
+Unter **Einstellungen → API-Mapping** kannst du pro Kategorie mehrere API-Namen hinterlegen, zum Beispiel `Essen` → `Edeka, Lidl, Aldi`. Der vollständige Ausgabenname wird ohne Beachtung der Groß- und Kleinschreibung abgeglichen. Gibt es im aktiven Monat ein Budget mit dieser Kategorie, wird die Ausgabe direkt diesem Budget hinzugefügt; andernfalls wird sie als Standardausgabe mit der Zielkategorie gespeichert. Ein passendes Mapping hat Vorrang vor `budget_id` und `category` aus dem API-Aufruf.
 
 Erfolgreich angelegte Ausgaben liefern HTTP `201 Created` und ein JSON-Objekt mit ID, Monat, Typ und Ausgabe:
 
@@ -84,9 +86,9 @@ Fehlerantworten sind JSON mit einem `error`-Feld:
 
 | HTTP-Status | Bedeutung |
 | --- | --- |
-| `400 Bad Request` | Ungültiges JSON, fehlende Pflichtfelder, ungültiger Monat oder ungültiges Datum. |
+| `400 Bad Request` | Ungültiges JSON, fehlende Pflichtfelder oder ungültiges Datum. |
 | `401 Unauthorized` | Bearer-Token fehlt, ist ungültig, abgelaufen oder wurde widerrufen. |
-| `404 Not Found` | Die angegebene Budget-ID wurde im Zielmonat nicht gefunden. |
+| `404 Not Found` | Die angegebene Budget-ID wurde im aktiven Monat nicht gefunden. |
 | `500 Internal Server Error` | Finly konnte die Ausgabe nicht speichern. |
 
 Der API-Key kann nur Ausgaben hinzufügen. Es gibt keine API-Endpunkte zum Lesen, Ändern oder Löschen von Daten oder zum Verwalten von Budgets. Die API-Key-Erstellung und der Widerruf sind geschützte Formulare in der Weboberfläche, keine öffentlichen API-Endpunkte. Bei Veröffentlichung verwende für API-Aufrufe ausschließlich HTTPS und halte den Bearer-Token geheim.
